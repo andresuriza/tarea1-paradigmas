@@ -1,3 +1,4 @@
+; TODO: Entradas y salidas de punto flotante, verificación de limites -9999, 9999, entradas y salidas negativas
 org 100h
 
 .data
@@ -16,10 +17,12 @@ org 100h
 	bye: db 'Gracias por utilizar CalcuTec',13,10,'$'
 	error: db 'Entrada erronea',13,10,'$'
 .code
+	; Label que maneja los mensajes iniciales del programa y espera a que el usuario ingrese una operacion
 	start:
-		mov ax, @data
-		mov ds, ax
+		mov ax, @data ; Cargar los strings en ax
+		mov ds, ax	; Guardarlos en ds
 		
+		;------------ Mensajes de bienvenida------------------
 		mov ah, 9
 		mov dx, offset saludo
 		int 21h
@@ -44,108 +47,212 @@ org 100h
 		mov dx, offset instr5
 		int 21h
 		
-		mov ah, 0
+		mov ah, 0	; Lee entrada
 		int 16h
-		cmp al,31h
-		je Suma
-		cmp al,32h
+		
+		cmp al,31h	; Si usuario escoje 1, es suma
+		je Suma		
+		cmp al,32h	; Si usuario escoje 2, es resta
 		je Resta
-		cmp al, 33h
+		cmp al, 33h	; Si usuario escoje 3, es multiplicacion
 		je Multiplicar
-		cmp al, 34h
+		cmp al, 34h	; Si usuario escoje 4, es division
 		je Dividir
 		
 		mov ah, 9
-		mov dx, offset error
+		mov dx, offset error	; Else, error
 		int 21h
 		
 		mov ah,0
 		int 16h
 		jmp start
 
+	; Label que maneja la operacion de suma
 	Suma:
 		mov ah, 9
-		mov dx, offset op1
+		mov dx, offset op1	; Mensaje para ingresar primer operando
 		int 21h
 		
-		mov cx, 0
+		mov cx, 0	; Establece counter en 0
 		call NumEntrada
-		push dx
+		push dx	; Guarda operando en stack
 		mov ah, 9
-		mov dx, offset op2
+		mov dx, offset op2	; Mensaje para ingresar segundo operando
 		int 21h
-		mov cx, 0
+		
+		mov cx, 0	; Counter en 0
 		call NumEntrada
-		pop bx
-		add dx, bx
-		push dx
+		pop bx	; Guarda operando anterior en bx
+		add dx, bx	; Suma los numeros
+		push dx	; Guarda resultado en stack
+		mov ah, 9
+		mov dx, offset result	; Mensaje de resultado
+		int 21h
+		
+		mov cx, 10000 ; Maximo 32 bits
+		pop dx	; Guarda resultado en dx
+		call Resultado
+		jmp exit
+	
+	; Label que maneja la operacion de multiplicacion
+	Multiplicar:
+		mov ah, 9	
+		mov dx, offset op1	; Mensaje para ingresar primer operando
+		int 21h
+		
+		mov cx, 0	; Establece counter en 0
+		call NumEntrada
+		push dx	; Guarda operando en stack
+		mov ah, 9
+		mov dx, offset op2	; Mensaje para ingresar segundo operando
+		int 21h
+		
+		mov cx, 0	; Counter en 0
+		call NumEntrada	
+		pop bx	; Guarda operando anterior en bx
+		mov ax, dx	; Mueve otro operando a ax
+		mul bx	; ax * bx	
+		mov dx, ax	; Mueve el resultado a dx
+		push dx	; Guarda resultado en stack
+		mov ah, 9
+		mov dx, offset result	; Mensaje de resultado
+		int 21h
+		
+		mov cx, 10000	; Maximo 32 bits
+		pop dx	; Guarda resultado en dx
+		call Resultado
+		jmp exit
+
+	; Label que maneja la operacion de resta
+	Resta:
+		mov ah, 9
+		mov dx, offset op1	; Mensaje para ingresar primer operando
+		int 21h
+		
+		mov cx, 0	; Establece counter en 0
+		call NumEntrada
+		push dx	; Guarda operando en stack
+		mov ah, 9
+		mov dx, offset op2	; Mensaje para ingresar segundo operando
+		int 21h
+		
+		mov cx, 0	; Counter en 0
+		call NumEntrada
+		pop bx	; Guarda operando anterior en bx
+		sub bx, dx	; Resta operandos
+		mov dx, bx	; Guarda resultado en dx
+		push dx	; Guarda resultado en stack		
+		mov ah, 9
+		mov dx, offset result	; Mensaje de resultado
+		int 21h
+		
+		mov cx, 10000	; Maximo 32 bits
+		pop dx	; Guarda resultado en dx
+		call Resultado
+		jmp exit
+
+	; Label que maneja la operacion de division
+	Dividir:
+		mov ah, 9
+		mov dx, offset op1	; Mensaje para ingresar primer operando
+		int 21h
+		
+		mov cx, 0	; Establece counter en 0
+		call NumEntrada
+		push dx	; Guarda operando en stack
+		mov ah, 9
+		mov dx, offset op2	; Mensaje para ingresar segundo operando
+		int 21h
+		
+		mov cx, 0	; Counter en 0
+		call NumEntrada
+		pop bx	; Guarda operando anterior en bx
+		mov ax, bx	; Mueve operando en ax
+		mov cx, dx	; Mueve otro operando a cx
+		mov dx, 0	; Clear dx
+		mov bx, 0	; Clear bx
+		div cx	; cx / ax
+		mov bx, dx	; Mueve residuo a bx
+		mov dx, ax	; Guarda resultado en dx
+		push bx	; Guarda residuo en stack
+		push dx	; Guarda resultado en stack	
 		mov ah, 9
 		mov dx, offset result
 		int 21h
-		mov cx, 10000
-		pop dx
-		call Mostrar
+		
+		mov cx, 10000 ; Maximo 32 bits
+		pop dx	; Guarda resultado en dx
+		call Resultado
 		jmp exit
-
+		
+	; Label que se encarga de procesar el tamaño del numero de entrada, y administra el Resultado los digitos 
+	; o procesarlos al presionar enter
 	NumEntrada:
-		mov ah, 0
+		mov ah, 0	; Recibe numero
 		int 16h
-		mov dx, 0
-		mov bx, 1
-		cmp al, 0dh
+		
+		mov dx, 0	; Inicializa dx
+		mov bx, 1	; Establece 1 para multiplicacion
+		cmp al, 0Dh	; Si presiona enter
 		je CreaNum
-		sub ax, 30h
-		call MostrarNo
+		sub ax, 30h ; ASCII a numero decimal
+		call MostrarNum
 		mov ah, 0
-		push ax
-		inc cx
+		push ax	; Guarda numero en stack
+		inc cx	; Contador + 1
 		jmp NumEntrada
 
+	; Label que se encarga de guardar operando en dx
 	CreaNum:
-		pop ax
-		push dx
-		mul bx
-		pop dx
-		add dx, ax
-		mov ax, bx
-		mov bx, 10
-		push dx
-		mul bx
-		pop dx
-		mov bx, ax
-		dec cx
+		pop ax	; Guarda ultimo digito en ax
+		push dx	; Guarda digito en stack		 
+		mul bx	; ax * bx
+		pop dx	; Guarda digito en dx
+		add dx, ax	; Guarda digito en dx
+		mov ax, bx	; Guarda bx en ax
+		mov bx, 10	; Para agregar digito al numero
+		push dx	; Guarda digito en stack
+		mul bx	; Multiplica ax por 10
+		pop dx	; Guarda digito en dx
+		mov bx, ax	; Mueve resultado de multiplicacion en bx
+		dec cx	; Decrementa cuenta decimal
 		cmp cx, 0
-		jne CreaNum
-		ret
+		jne CreaNum	; if cx != 0, todavia quedan digitos del num
+		ret ; Else regrese a label anterior
 
-	Mostrar:
-		mov ax, dx
-		mov dx, 0
-		div cx
-		call MostrarNo
-		mov bx, dx
-		mov dx, 0
-		mov ax, cx
+	; Label que se encarga de procesar el resultado de la operacion
+	Resultado:
+		mov ax, dx	; Mueve resultado a ax
+		mov dx, 0	
+		div cx	; cx / ax para obtener primer digito
+		call MostrarNum
+		mov bx, dx	; Mueve resultado a bx
+		mov dx, 0	; Reset dx
+		mov ax, cx	; Mueve 10000 a ax
 		mov cx, 10
-		div cx
-		mov dx, bx
-		mov cx, ax
-		cmp ax, 0
-		jne Mostrar
+		div cx	; Guarda en ax division de 10000 / 10
+		mov dx, bx	; Guarda resultado en dx
+		mov cx, ax	; Guarda division en cx
+		cmp ax, 0	
+		jne Resultado	; Si todavia quedan digitos, repetir
 		ret
 
-	MostrarNo:
-		push ax
-		push dx
-		mov dx, ax
-		add dl, 30h
-		mov ah, 2
+	; Label que se encarga de mostrar el numero en el registro ax
+	MostrarNum:
+		push ax	; Guarda numero en stack
+		push dx	; Guarda residuo en stack
+		mov dx, ax	; Guarda numero en dx
+		add dl, 30h ; Convierte numero a ASCII
+		
+		mov ah, 2	; Imprime numero ingresado en consola
 		int 21h
-		pop dx
-		pop ax
-		ret
-
+		
+		pop dx	; Regresa resultado a dx
+		pop ax	; Regresa numero a ax
+		ret	; Regresa a label anterior
+	
 	exit:
+	; -------- Mensajes de salida --------------------
 		mov dx, offset cont1
 		mov ah, 9
 		int 21h
@@ -160,93 +267,10 @@ org 100h
 		
 		mov ah, 0
 		int 16h
-		cmp al, 31h
-		mov ax, 0
-		je start
-		
-		mov dx, offset bye
+		cmp al, 31h ; Si es 1
+		mov ax, 0	; Reset ax
+		je start	; Regresa al inicio
+		mov dx, offset bye	; Else mensaje de despedida
 		mov ah, 9
 		int 21h
-		
 		ret
-
-	Multiplicar:
-		mov ah, 9
-		mov dx, offset op1
-		int 21h
-		
-		mov cx, 0
-		call NumEntrada
-		push dx
-		mov ah, 9
-		mov dx, offset op2
-		int 21h
-		mov cx, 0
-		call NumEntrada
-		pop bx
-		mov ax, dx
-		mul bx
-		mov dx, ax
-		push dx
-		mov ah, 9
-		mov dx, offset result
-		int 21h
-		mov cx, 10000
-		pop dx
-		call Mostrar
-		jmp exit
-
-	Resta:
-		mov ah, 9
-		mov dx, offset op1
-		int 21h
-		mov cx, 0
-		call NumEntrada
-		push dx
-		mov ah, 9
-		mov dx, offset op2
-		int 21h
-		mov cx, 0
-		call NumEntrada
-		pop bx
-		sub bx, dx
-		mov dx, bx
-		push dx
-		mov ah, 9
-		mov dx, offset result
-		int 21h
-		mov cx, 10000
-		pop dx
-		call Mostrar
-		jmp exit
-
-	Dividir:
-		mov ah, 9
-		mov dx, offset op1
-		int 21h
-		
-		mov cx, 0
-		call NumEntrada
-		push dx
-		mov ah, 9
-		mov dx, offset op2
-		int 21h
-		mov cx, 0
-		call NumEntrada
-		pop bx
-		mov ax, bx
-		mov cx, dx
-		mov dx, 0
-		mov bx, 0
-		div cx
-		mov bx, dx
-		mov dx, ax
-		push bx
-		push dx
-		mov ah, 9
-		mov dx, offset result
-		int 21h
-		mov cx, 10000
-		pop dx
-		call Mostrar
-		jmp exit
