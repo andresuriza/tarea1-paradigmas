@@ -1,4 +1,4 @@
-; TODO: Entradas y salidas de punto flotante, verificaciÃ³n de limites -9999, 9999, entradas y salidas negativas
+; TODO: Entradas y salidas de punto flotante, verificación de limites -9999, 9999, entradas y salidas negativas
 org 100h
 
 .data
@@ -83,6 +83,10 @@ org 100h
 		mov cx, 0	; Counter en 0
 		call NumEntrada
 		pop bx	; Guarda operando anterior en bx
+		;convierte en enteros los numeros
+		;mov cx,bx
+		;mov ax,
+		
 		add dx, bx	; Suma los numeros
 		push dx	; Guarda resultado en stack
 		mov ah, 9
@@ -92,7 +96,7 @@ org 100h
 		mov cx, 10000 ; Maximo 32 bits
 		pop dx	; Guarda resultado en dx
 		call Resultado
-		jmp exit
+	
 	
 	; Label que maneja la operacion de multiplicacion
 	Multiplicar:
@@ -121,7 +125,7 @@ org 100h
 		mov cx, 10000	; Maximo 32 bits
 		pop dx	; Guarda resultado en dx
 		call Resultado
-		jmp exit
+	
 
 	; Label que maneja la operacion de resta
 	Resta:
@@ -149,7 +153,7 @@ org 100h
 		mov cx, 10000	; Maximo 32 bits
 		pop dx	; Guarda resultado en dx
 		call Resultado
-		jmp exit
+	
 
 	; Label que maneja la operacion de division
 	Dividir:
@@ -183,9 +187,9 @@ org 100h
 		mov cx, 10000 ; Maximo 32 bits
 		pop dx	; Guarda resultado en dx
 		call Resultado
-		jmp exit
+	
 		
-	; Label que se encarga de procesar el tamaÃ±o del numero de entrada, y administra el Resultado los digitos 
+	; Label que se encarga de procesar el tamaño del numero de entrada, y administra el Resultado los digitos 
 	; o procesarlos al presionar enter
 	NumEntrada:
 		mov ah, 0	; Recibe numero
@@ -195,12 +199,10 @@ org 100h
 		mov bx, 1	; Establece 1 para multiplicacion
 		cmp al, 0Dh	; Si presiona enter
 		je CreaNum
-		sub ax, 30h ; ASCII a numero decimal
-		call MostrarNum
-		mov ah, 0
-		push ax	; Guarda numero en stack
-		inc cx	; Contador + 1
-		jmp NumEntrada
+		cmp al,2Eh
+		jne noFlot
+		je hayFlot
+		
 
 	; Label que se encarga de guardar operando en dx
 	CreaNum:
@@ -218,9 +220,26 @@ org 100h
 		dec cx	; Decrementa cuenta decimal
 		cmp cx, 0
 		jne CreaNum	; if cx != 0, todavia quedan digitos del num
+		cmp cx,2Eh
+		je hayFlot ;si el digito es un punto, hay flotante
 		ret ; Else regrese a label anterior
-
+		
+    ;si no hay punto, convierte el numero a ascii
+    noFlot:
+        sub ax, 30h ; ASCII a numero decimal
+		call MostrarNum
+		mov ah, 0
+		push ax	; Guarda numero en stack
+		inc cx	; Contador + 1
+		jmp NumEntrada
+	hayFlot:
+	    ;guardar cantidad de digitos despues del punto
+	    call MostrarPunto
+	    mov ah,0
+	    jmp NumEntrada
 	; Label que se encarga de procesar el resultado de la operacion
+	
+	
 	Resultado:
 		mov ax, dx	; Mueve resultado a ax
 		mov dx, 0	
@@ -235,7 +254,7 @@ org 100h
 		mov cx, ax	; Guarda division en cx
 		cmp ax, 0	
 		jne Resultado	; Si todavia quedan digitos, repetir
-		ret
+		jmp exit
 
 	; Label que se encarga de mostrar el numero en el registro ax
 	MostrarNum:
@@ -243,6 +262,17 @@ org 100h
 		push dx	; Guarda residuo en stack
 		mov dx, ax	; Guarda numero en dx
 		add dl, 30h ; Convierte numero a ASCII
+		
+		mov ah, 2	; Imprime numero ingresado en consola
+		int 21h
+		
+		pop dx	; Regresa resultado a dx
+		pop ax	; Regresa numero a ax
+		ret	; Regresa a label anterior
+    MostrarPunto:
+        push ax	; Guarda numero en stack
+		push dx	; Guarda residuo en stack
+		mov dx, ax	; Guarda numero en dx
 		
 		mov ah, 2	; Imprime numero ingresado en consola
 		int 21h
@@ -273,4 +303,5 @@ org 100h
 		mov dx, offset bye	; Else mensaje de despedida
 		mov ah, 9
 		int 21h
-		ret
+	end
+		
