@@ -200,6 +200,7 @@ org 100h
 		int 21h
 		
 		mov si,0
+		mov cx,0
 		call NumEntrada
 		push si ;guarda el flotante 1 de ultimo
 		push dx	; Guarda operando en stack
@@ -212,9 +213,144 @@ org 100h
 		call NumEntrada
 		pop bx	; Guarda entero 1 en bx
 		pop di  ; Guarda flotante 1 en di
-		mov ax, dx	; Mueve otro operando a ax
-		mul bx	; ax * bx	
-		mov dx, ax	; Mueve el resultado a dx
+		
+		;entero1=bx   entero2=dx  flotante1=di   flotante2=si     ejemplo 25.12x13.23
+		;se iguala la cantidad de digitos en ambos flotantes
+		;primero di
+		push bx
+		push dx ;se guardan [dx,bx] [entero1,entero2]
+		;se mueve el di
+		mov ax,di
+		;calcular cantidad de digitos
+		mov bx,1000
+		mul bx ;en ax queda ejmeplo 12000
+		cmp ax,9999
+		jle incrementar1dig
+		jg flotante1Arreglado ;no le hace nada y pasa con el siguiente
+		incrementar1dig:
+		    mov bx,100
+		    div ax ;si fuera 1200, entonces ahora queda 12
+		    mov di,ax ;guarda el flotante 1 en di para mantener el orden  
+		flotante1Arreglado:
+		;se repite el proceso para si
+		;se mueve el si
+		mov ax,si
+		;calcular cantidad de digitos
+		mov bx,1000
+		mul bx ;en ax queda ejmeplo 12000
+		cmp ax,9999
+		jle incrementar1dig2
+		jg flotante2Arreglado ;no le hace nada y pasa con el siguiente
+		incrementar1dig2:
+		    mov bx,100
+		    div ax ;si fuera 1200, entonces ahora queda 12
+		    mov si,ax ;guarda el flotante 2 en si para mantener el orden
+		flotante2Arreglado:
+		;ahora en si y di hay 2 digitos en c/u
+		;entero1=bx(25)   entero2=dx(13)  flotante1=di(12)   flotante2=si(23)     ejemplo 25.12x13.23
+		;se saca la parte entera del stack
+		pop dx
+		pop bx
+		;primero se le incrementan 2 dig al entero 1
+		push bx ;guarda copia en stack 
+		push si ;guarda el flotante 2 [23,25]
+		mov si,dx ;si=13
+		mov ax,bx ;ax=25
+		mov bx,100
+		mul bx ;ax=2500
+		;se le suma la parte flotante
+		add ax,di ;ax=2512
+		;actualmente: bx=100    dx=0   di=12  si=13
+		;reacomodamos por que me perdi
+		mov dx,si
+		pop si ;[25]
+		pop bx 
+		;actualmente: ax=2512   bx=25    dx=13   di=12  si=23
+		;se guardan valores que aun no se van a usar
+		push bx ;[25]
+		push dx ;[13,25]
+		push di ;[12, 13, 25]
+		
+		mov bx,100  ;bx=100
+		mov di, ax ;di=2512
+		mov ax, si ;ax=23
+		add ax,bx  ;ax=123
+		mov bx,10
+		div bx     ;ax=12, dx=3
+		mov bx, 10
+		sub ax,bx ;ax=2
+		push ax   ;[2, 12, 13, 25]
+		;multiplico el primer digito por 2512
+		mov ax, di ;ax=2512
+		mov bx,dx ;bx=3
+		mul bx ;ax=7536 dx=0
+		mov bx,10
+		div bx ;ax=753 dx=6
+		;ahora se multiplica el segundo numero, en di=2512
+		mov bx, ax ;bx=753
+		mov ax,di  ;ax=2512
+		mov cx, ax ;copia en cx
+		mov di,bx  ;di=753
+		pop bx     ;bx=2    [12, 13, 25]
+		mul bx     ;ax=5024
+		;ahora se suma el resultado anterior con este
+		add ax,di ;ax=576X   x por que ese digito no me interesa
+		mov bx,10
+		div bx    ;ax= 576  bx=10
+		;volvemos a ordenar, el registro en si, ya no se ocupa asi que se puede ordenar de la forma
+		pop si    ;si=12 [13,25]
+		pop di    ;di=13 [25]
+		pop dx    ;dx=25 []
+		mov bx,ax ;bx=576
+		mov ax,cx ;ax=2512
+		;actualmente  ax=2512(entero 1 compuesto)  bx=576(residuo)  dx=25(entero 1)  di=13(entero 2)
+		;seguimos
+		mov cx,100
+		push dx ;[25]
+		mov si,ax ;si=2512
+		mov ax,di ;ax=13
+		add ax,cx ;ax 113
+		mov cx,10
+		div cx    ;ax 11  dx=3
+		mov cx, 10
+		sub ax,cx ;ax=1
+		push ax  ;[1,25]
+		mov ax,si ;ax=2512
+		mov cx,dx ;cx=3
+		mul cx    ;ax=7536
+		add ax,bx ;ax=8112 aqui el 2 es el primer digito de interes para el flotante
+		pop di
+		pop cx
+		mov cx,0 ;no se ocupaba el valor
+		mov bx,ax
+
+		;actualmente  ax=8112  bx=8112  dx=0  di=1(entero 2 restante)  si=2512  []
+		;se extrae el primer digito de interes para la parte flotante
+		mov cx,10
+		div cx    ;ax=811  dx=2
+		push dx   ;[2]
+		;se multiplica si por di
+		mov cx, ax ;cx=811
+		mov ax,si  ;si=2512
+		mov bx,di  ;bx=1(o el resto del entero 2)
+		mul bx  ;ax=2512
+		add ax,cx  ;ax=3323
+		mov cx,10
+		div cx     ;ax=332  dx=3
+		push dx    ;[3,2]
+		mov cx,ax  ;cx=332 (PARTE ENTERA FINAL)
+		;ahora a armar el flotante
+		pop ax     ;ax=3 [2] 
+		mov bx,10
+		mul bx     ;ax=30
+		pop bx     ;bx=2
+		add ax,bx  ;ax=32 (PARTE FLOTANTE FINAL)
+		;se guardan en los registros correspondientes			
+		mov dx, cx	; Mueve la parte entera a dx
+		mov si, ax
+		xor cx,cx
+		xor di,di
+		xor bx,bx ;limpio registros
 		push dx	; Guarda resultado en stack
 		mov ah, 9
 		mov dx, offset result	; Mensaje de resultado
@@ -245,8 +381,33 @@ org 100h
 		call NumEntrada
 		pop bx	; Guarda entero 1 en bx
 		pop di  ; Guarda flotante 1 en di
-		sub bx, dx	; Resta operandos
-		mov dx, bx	; Guarda resultado en dx
+		sub bx, dx	; Resta operandos ejemplo 20.15 - 5.22
+		;en si esta el flotante 2
+		;copiar resultado entero en cx
+		mov cx,bx
+		
+		mov bx,100
+		add di,bx ;ejemplo .49+.100 =.149
+		
+		;primero se resta parte decimal
+		sub di,si ;ejemplo 149-69=080                   flotante 1 - flotante 2
+		;si fuera el segundo numero menor 149-39=110
+		;se compara si di es menor o mayor que 99
+		;si es menor que 99, se le resta 1 a la parte entera, si no, se deja igua
+		cmp di,99
+		jle restarEntero
+		jg arreglarDecimal
+		restarEntero: 
+		    sub cx,1 ;ejemplo 20-1=19
+		    ;ya que en di esta la parte flotante, ejemplo 080
+		    jmp continuarResta
+		arreglarDecimal:
+		    ;se le resta el 100 a di
+		    sub di,100
+		continuarResta:;en di debe quedar la parte flotante y en dx queda la parte entera
+		mov si,di
+		mov di,0
+		mov dx, cx	; Guarda resultado en dx
 		push dx	; Guarda resultado en stack		
 		mov ah, 9
 		mov dx, offset result	; Mensaje de resultado
@@ -265,7 +426,6 @@ org 100h
 		
 		mov cx, 0	; Establece counter en 0
 		mov si,0 ;inicializa si como 0
-		mov si,0
 		call NumEntrada
 		push si ;guarda el flotante 1 de ultimo
 		push dx
@@ -278,6 +438,8 @@ org 100h
 		call NumEntrada
 		pop bx	; Guarda entero 1 en bx
 		pop di  ; Guarda flotante 1 en di
+		;codigo para realizar la division
+		
 
 		mov ax, bx	; Mueve operando en ax
 		mov cx, dx	; Mueve otro operando a cx
@@ -300,7 +462,7 @@ org 100h
 	; Label que se encarga de procesar el tamaño del numero de entrada, y administra el Resultado los digitos 
 	; o procesarlos al presionar enter
 	NumEntrada:
-		mov ah, 0	; Recibe numero
+		mov ah, 0	; Recibe numero     86042600
 		int 16h
 		
 		mov dx, 0	; Inicializa dx
