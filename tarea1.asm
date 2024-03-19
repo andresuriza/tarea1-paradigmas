@@ -229,7 +229,7 @@ org 100h
 		jg flotante1Arreglado ;no le hace nada y pasa con el siguiente
 		incrementar1dig:
 		    mov bx,100
-		    div ax ;si fuera 1200, entonces ahora queda 12
+		    div bx ;si fuera 1200, entonces ahora queda 12
 		    mov di,ax ;guarda el flotante 1 en di para mantener el orden  
 		flotante1Arreglado:
 		;se repite el proceso para si
@@ -243,7 +243,7 @@ org 100h
 		jg flotante2Arreglado ;no le hace nada y pasa con el siguiente
 		incrementar1dig2:
 		    mov bx,100
-		    div ax ;si fuera 1200, entonces ahora queda 12
+		    div bx ;si fuera 1200, entonces ahora queda 12
 		    mov si,ax ;guarda el flotante 2 en si para mantener el orden
 		flotante2Arreglado:
 		;ahora en si y di hay 2 digitos en c/u
@@ -439,15 +439,98 @@ org 100h
 		pop bx	; Guarda entero 1 en bx
 		pop di  ; Guarda flotante 1 en di
 		;codigo para realizar la division
+		;ejemplo 5,21 entre 2,7
+		;bx=5  di=21  dx=2  si=7
+		;se iguala la cantidad de digitos en ambos flotantes
+		;primero di
+		push bx
+		push dx ;se guardan [dx,bx] [entero1(2),entero2(5)]
+		;se mueve el di
+		mov ax,di
+		;calcular cantidad de digitos, ambos deben tener la misma cantidad de decimales
+		mov bx,1000
+		mul bx ;en ax queda ejmeplo 12000
+		cmp ax,9999
+		jle incdig1div
+		jg flotante1ADiv ;no le hace nada y pasa con el siguiente
+		incdig1div:
+		    mov bx,100
+		    div bx ;si fuera 1200, entonces ahora queda 12
+		    mov di,ax ;guarda el flotante 1 en di para mantener el orden  
+		flotante1ADiv:
+		;se repite el proceso para si
+		;se mueve el si
+		mov ax,si
+		;calcular cantidad de digitos
+		mov bx,1000
+		mul bx ;en ax queda ejmeplo 12000
+		cmp ax,9999
+		jle incdig2div
+		jg flotante2ADiv ;no le hace nada y pasa con el siguiente
+		incdig2div:
+		    mov bx,100
+		    div bx ;si fuera 1200, entonces ahora queda 12
+		    mov si,ax ;guarda el flotante 2 en si para mantener el orden
+		flotante2ADiv:
+		;ahora los decimales deben tener la misma cantidad de digitos
+		;se procede a quitarles un digito a cada uno 
+		;actualmente di=21  si=70  [2,5]
+		mov bx,1000
+		add di,bx
+		add si,bx  ;di=1021   si=1070
+		mov bx,10
+		;primero si
+		mov ax,si
+		div bx   ;ax=107  dx=0
+		mov bx,100
+		sub ax,bx
+		mov si,ax  ;si = 7  float 2
+		;ahora con di
+		mov bx,10 
+		mov ax,di
+		div bx   ;ax=102  dx=0
+		mov bx,100
+		sub ax,bx
+		mov di,ax  ;di = 2  float 1
+		;re obtenemos los enteros y multiplicamos por 10
+		pop ax ;cx=2 entero 2
+		mov bx,10
+		mul bx  ;ax=20
+		add ax,si
+		mov si,ax ;si=27 NUMERO 2
+		;entero 1
+		pop ax   ;ax=5
+		mov bx,10
+		mul bx   ;ax=50
+		add ax,di ;ax=52
+		mov di,ax ;di=52 NUMERO 1
+		;ahora se dividen
+		mov ax,di
+		mov bx,si
+		div bx
+		push ax ;[entero]
+		;ahora, en ax se tiene la parte entera
+		mov bx,10
+		mov ax,dx
+		mul bx   ;el residuo se multiplica por 10
+		mov bx,si ;bx=27
+		div bx   ;en ax queda el primer decimal (9)
+		mov cx,dx ;en cx se guarda el residuo
+		mov bx,10
+		mul bx
+		push ax  ;[90,1]
+		mov ax,cx  ;mueve el residuo a ax
+		mov bx,10
+		mul bx     ;en ax esta el residuo
+		mov bx,si
+		div bx   ;en ax queda el segundo decimal
 		
-
-		mov ax, bx	; Mueve operando en ax
-		mov cx, dx	; Mueve otro operando a cx
-		mov dx, 0	; Clear dx
-		mov bx, 0	; Clear bx
-		div cx	; cx / ax
-		mov bx, dx	; Mueve residuo a bx
-		mov dx, ax	; Guarda resultado en dx
+		pop bx  ;bx=90  [1]
+		add ax,bx  ;suma los decimales
+		mov si,ax  ;se guarda en si el valor flotante
+		pop dx     ;se guarda en dx el valor enterp
+		;fin de la division
+		
 		push bx	; Guarda residuo en stack
 		push dx	; Guarda resultado en stack	
 		mov ah, 9
